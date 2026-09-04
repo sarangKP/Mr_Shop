@@ -11,6 +11,8 @@ from mrshop.memory.session import (
     update,
     switch_topic,
     add_wardrobe_item,
+    add_to_cart,
+    clear_cart,
     set_last_mentioned_item,
     set_last_suggested_items,
     update_preferences,
@@ -243,3 +245,21 @@ def test_set_last_suggested_items_replaces_previous():
     set_last_suggested_items(state, ["blazer"])
     set_last_suggested_items(state, ["white shirt", "trousers"])
     assert get(state, "last_suggested_items") == ["white shirt", "trousers"]
+
+
+# ---------------------------------------------------------------------------
+# clear_cart
+# ---------------------------------------------------------------------------
+
+def test_clear_cart_empties_cart():
+    state = new_session()
+    add_to_cart(state, "navy blazer")
+    add_to_cart(state, "white shirt")
+    clear_cart(state)
+    assert get(state, "cart") == []
+
+
+def test_clear_cart_on_empty_cart_is_noop():
+    state = new_session()
+    clear_cart(state)
+    assert get(state, "cart") == []

@@ -111,18 +111,11 @@ def test_purchase_known_item_has_mock_price():
     assert result["price_usd"] == 189.99
 
 
-def test_purchase_creates_cart():
+def test_purchase_adds_to_cart_during_call():
+    # purchase() (the inner function) still adds to cart — clearing happens in _run_purchase
     state = new_session()
     purchase("navy blazer", state)
-    assert "cart" in state
     assert "navy blazer" in state["cart"]
-
-
-def test_purchase_accumulates_cart():
-    state = new_session()
-    purchase("navy blazer", state)
-    purchase("white t-shirt", state)
-    assert len(state["cart"]) == 2
 
 
 def test_purchase_sets_last_mentioned_item():
@@ -237,13 +230,22 @@ def test_run_purchase_bulk_buys_suggested_items_excluding_wardrobe():
     set_last_suggested_items(state, ["white shirt", "trousers", "blue shoes"])
     result = _run_purchase("i want to purchase those items", None, state)
     assert result["status"] == "bulk_purchase"
-    assert "blue shoes" not in state["cart"]
-    assert "white shirt" in state["cart"]
-    assert "trousers" in state["cart"]
+    # cart is cleared after fulfilment; wardrobe is the durable record
+    assert state["cart"] == []
+    assert "white shirt" in state["wardrobe_items"]
+    assert "trousers" in state["wardrobe_items"]
+    assert result["items_purchased"] == ["white shirt", "trousers"]
 
 
 def test_run_purchase_single_resolved_item_when_no_bulk_pronoun():
     state = new_session()
     result = _run_purchase("i want to buy a white shirt", "white shirt", state)
     assert result["status"] == "purchase_initiated"
-    assert state["cart"] == ["white shirt"]
+    assert state["cart"] == []  # cart cleared after fulfilment
+
+
+def test_run_purchase_cart_cleared_after_bulk_purchase():
+    state = new_session()
+    set_last_suggested_items(state, ["white shirt", "trousers"])
+    _run_purchase("i want to purchase those items", None, state)
+    assert state["cart"] == []  # cart cleared after fulfilment

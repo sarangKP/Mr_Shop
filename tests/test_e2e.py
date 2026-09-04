@@ -51,8 +51,9 @@ class TestTopicSwitchScenario:
         reply, trace = await self.orch.handle_turn("I want to buy that jacket")
         assert "purchase" in trace["tools_invoked"]
         assert trace["topic_switch"] is True
-        assert "cart" in self.state
-        assert len(self.state["cart"]) == 1
+        # Cart is cleared after fulfilment; the item lands in wardrobe instead.
+        assert self.state["cart"] == []
+        assert len(self.state["wardrobe_items"]) >= 1
 
     async def test_full_scenario_memory_carry_over(self):
         await self.orch.handle_turn("I just got a navy blazer")

@@ -56,15 +56,21 @@ def _run_purchase(utterance: str, resolved_item, state: dict) -> dict:
         if suggested:
             items_to_buy = [item for item in suggested if item not in wardrobe]
             results = [purchase(item, state) for item in items_to_buy]
+            purchased = [r["item"] for r in results if r.get("status") == "purchase_initiated"]
+            session.clear_cart(state)
             return {
                 "status": "bulk_purchase",
-                "items_purchased": items_to_buy,
+                "items_purchased": purchased,
                 "results": results,
-                "cart": list(state["cart"]),
+                "cart": [],
             }
 
     if resolved_item:
-        return purchase(resolved_item, state)
+        result = purchase(resolved_item, state)
+        if result.get("status") == "purchase_initiated":
+            session.clear_cart(state)
+            result["cart"] = []
+        return result
 
     return {}
 

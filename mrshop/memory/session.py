@@ -107,6 +107,11 @@ def add_to_cart(state: dict, item: str) -> None:
     state["cart"].append(item)
 
 
+def clear_cart(state: dict) -> None:
+    """Empty the cart after a purchase is fulfilled."""
+    state["cart"] = []
+
+
 def set_last_suggested_items(state: dict, items: list[str]) -> None:
     """Replace last_suggested_items with the new list from the latest styling turn."""
     state["last_suggested_items"] = list(items)
