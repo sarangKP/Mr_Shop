@@ -120,6 +120,13 @@ def test_prompt_handles_empty_wardrobe():
     prompt = _build_extraction_prompt("buy it", [], None)
     assert "empty" in prompt
 
+def test_prompt_includes_last_suggested_items():
+    from mrshop.memory.session import set_last_suggested_items
+    suggested = ["white shirt", "trousers"]
+    prompt = _build_extraction_prompt("those items", [], None, suggested)
+    assert "white shirt" in prompt
+    assert "trousers" in prompt
+
 
 # ---------------------------------------------------------------------------
 # llm_resolve — happy path

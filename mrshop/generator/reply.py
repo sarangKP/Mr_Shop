@@ -113,14 +113,35 @@ async def template_reply(
         reply = "\n".join(lines) + assumption
 
     elif intent == "purchase":
-        item = result["item"]
-        price = result["price_usd"]
-        cart_size = len(result["cart"])
-        reply = (
-            f"Purchase started for '{item}' at ${price:.2f}. "
-            f"Your cart now has {cart_size} item(s)."
-            + assumption
-        )
+        status = result.get("status")
+        if status == "already_owned":
+            reply = (
+                f"'{result['item']}' is already in your wardrobe — you own it! "
+                "No need to buy it again." + assumption
+            )
+        elif status == "bulk_purchase":
+            items = result.get("items_purchased", [])
+            cart_size = len(result.get("cart", []))
+            if items:
+                names = ", ".join(f"'{i}'" for i in items)
+                reply = (
+                    f"Added {names} to your cart. "
+                    f"Your cart now has {cart_size} item(s)."
+                    + assumption
+                )
+            else:
+                reply = "All suggested items are already in your wardrobe — nothing new to buy!"
+        elif not result:
+            reply = "I'm not sure what you'd like to buy. Could you be more specific?" + assumption
+        else:
+            item = result["item"]
+            price = result["price_usd"]
+            cart_size = len(result["cart"])
+            reply = (
+                f"Purchase started for '{item}' at ${price:.2f}. "
+                f"Your cart now has {cart_size} item(s)."
+                + assumption
+            )
 
     elif intent == "booking":
         reply = (

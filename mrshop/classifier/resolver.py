@@ -102,18 +102,27 @@ async def heuristic_resolve(utterance: str, memory: dict) -> tuple[Optional[str]
 # LLM implementation — Ollama (Step 9)
 # ---------------------------------------------------------------------------
 
-def _build_extraction_prompt(utterance: str, wardrobe: list[str], last_item: Optional[str]) -> str:
+def _build_extraction_prompt(
+    utterance: str,
+    wardrobe: list[str],
+    last_item: Optional[str],
+    suggested_items: Optional[list[str]] = None,
+) -> str:
     """Build a compact prompt for Ollama to extract the referenced item."""
     wardrobe_str = ", ".join(wardrobe) if wardrobe else "empty"
     last_str = last_item or "none"
+    suggested_str = ", ".join(suggested_items) if suggested_items else "none"
     return (
         "You are a fashion assistant helping identify clothing item references.\n\n"
         f"User's wardrobe: {wardrobe_str}\n"
         f"Last mentioned item: {last_str}\n"
+        f"Recently suggested items: {suggested_str}\n"
         f'User said: "{utterance}"\n\n'
         "Reply with ONLY the clothing item name the user is referring to "
         '(e.g. "navy blazer", "leather jacket"). '
         'If they use a pronoun like "it" or "that", resolve it from context. '
+        'If they say "those items" or "them" and there are recently suggested items, '
+        'return the most relevant suggested item. '
         'If no item can be determined, reply with "none". '
         "Do not explain or add any other text."
     )
@@ -141,7 +150,8 @@ async def llm_resolve(utterance: str, memory: dict) -> tuple[Optional[str], str]
 
     wardrobe = memory.get("wardrobe_items", [])
     last = memory.get("last_mentioned_item")
-    prompt = _build_extraction_prompt(utterance, wardrobe, last)
+    suggested = memory.get("last_suggested_items", [])
+    prompt = _build_extraction_prompt(utterance, wardrobe, last, suggested or None)
 
     try:
         async with httpx.AsyncClient(timeout=10.0) as client:
