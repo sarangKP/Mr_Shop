@@ -9,7 +9,7 @@ Sync helpers (_new_trace etc.) stay sync.
 import pytest
 from unittest.mock import patch
 
-from mrshop.memory.session import new_session, get, add_wardrobe_item, set_last_mentioned_item
+from mrshop.memory.session import new_session, get, add_wardrobe_item, set_last_mentioned_item, set_last_suggested_items
 from mrshop.classifier.resolver import heuristic_resolve
 from mrshop.orchestrator.orchestrator import (
     Orchestrator,
@@ -73,6 +73,21 @@ class TestHeuristicResolve:
         item, source = await heuristic_resolve("what goes with my navy blazer?", state)
         assert item == "navy blazer"
         assert source == "explicit"
+
+    async def test_bulk_pronoun_resolves_to_first_suggested_item(self):
+        state = new_session()
+        set_last_mentioned_item(state, "blue shoes")
+        set_last_suggested_items(state, ["white shirt", "trousers"])
+        item, source = await heuristic_resolve("i want to purchase those items", state)
+        assert item == "white shirt"
+        assert source == "heuristic:suggested"
+
+    async def test_bulk_pronoun_falls_back_to_last_mentioned_when_no_suggestions(self):
+        state = new_session()
+        set_last_mentioned_item(state, "navy blazer")
+        item, source = await heuristic_resolve("i want to buy those", state)
+        assert item == "navy blazer"
+        assert source == "heuristic:last_mentioned"
 
 
 # ---------------------------------------------------------------------------

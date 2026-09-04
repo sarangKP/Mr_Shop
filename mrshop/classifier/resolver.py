@@ -48,6 +48,11 @@ _ITEM_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_BULK_REF_RE = re.compile(
+    r"\b(those|them|these|all of them|the ones|those items|these items|they)\b",
+    re.IGNORECASE,
+)
+
 
 # ---------------------------------------------------------------------------
 # Heuristic implementation — always available, no LLM required
@@ -78,6 +83,12 @@ async def heuristic_resolve(utterance: str, memory: dict) -> tuple[Optional[str]
             adjective = None
         item = f"{adjective} {noun}".strip().lower() if adjective else noun.lower()
         return item, "explicit"
+
+    # 2.5. Bulk-reference pronoun ("those", "them", "these") → prefer last suggested items
+    if _BULK_REF_RE.search(utterance):
+        suggested = memory.get("last_suggested_items", [])
+        if suggested:
+            return suggested[0], "heuristic:suggested"
 
     # 3. Fall back to last_mentioned_item
     last = memory.get("last_mentioned_item")
