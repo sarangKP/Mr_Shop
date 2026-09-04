@@ -28,6 +28,7 @@ def new_session() -> dict:
         "current_topic": None,        # set on first classified turn
         "topic_history": [],          # list of past topics, oldest first
         "last_mentioned_item": None,  # used by heuristic reference resolver
+        "last_suggested_items": [],   # items suggested in the most recent styling turn
         "pending_action": None,       # reserved for multi-turn confirmations
     }
 
@@ -104,6 +105,11 @@ def set_budget(state: dict, amount: float) -> None:
 def add_to_cart(state: dict, item: str) -> None:
     """Append *item* to the cart (no dedup — same item can be bought multiple times)."""
     state["cart"].append(item)
+
+
+def set_last_suggested_items(state: dict, items: list[str]) -> None:
+    """Replace last_suggested_items with the new list from the latest styling turn."""
+    state["last_suggested_items"] = list(items)
 
 
 def update_preferences(state: dict, style: str | None = None, colors: list | None = None) -> None:

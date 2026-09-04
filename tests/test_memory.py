@@ -12,6 +12,7 @@ from mrshop.memory.session import (
     switch_topic,
     add_wardrobe_item,
     set_last_mentioned_item,
+    set_last_suggested_items,
     update_preferences,
     snapshot,
 )
@@ -25,7 +26,8 @@ def test_new_session_has_all_required_keys():
     state = new_session()
     required = {
         "wardrobe_items", "preferences", "gender", "budget", "cart",
-        "current_topic", "topic_history", "last_mentioned_item", "pending_action",
+        "current_topic", "topic_history", "last_mentioned_item",
+        "last_suggested_items", "pending_action",
     }
     assert required == set(state.keys())
 
@@ -218,3 +220,26 @@ def test_snapshot_is_deep_copy():
     snap = snapshot(state)
     state["wardrobe_items"].append("blue coat")
     assert "blue coat" not in snap["wardrobe_items"]
+
+
+# ---------------------------------------------------------------------------
+# last_suggested_items
+# ---------------------------------------------------------------------------
+
+def test_new_session_has_last_suggested_items_key():
+    state = new_session()
+    assert "last_suggested_items" in state
+    assert state["last_suggested_items"] == []
+
+
+def test_set_last_suggested_items_stores_list():
+    state = new_session()
+    set_last_suggested_items(state, ["white shirt", "trousers"])
+    assert get(state, "last_suggested_items") == ["white shirt", "trousers"]
+
+
+def test_set_last_suggested_items_replaces_previous():
+    state = new_session()
+    set_last_suggested_items(state, ["blazer"])
+    set_last_suggested_items(state, ["white shirt", "trousers"])
+    assert get(state, "last_suggested_items") == ["white shirt", "trousers"]
