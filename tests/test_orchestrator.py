@@ -82,11 +82,34 @@ class TestHeuristicResolve:
         assert item == "white shirt"
         assert source == "heuristic:suggested"
 
+    async def test_singular_pronoun_resolves_to_first_suggested_item(self):
+        state = new_session()
+        set_last_mentioned_item(state, "blue shoes")
+        set_last_suggested_items(state, ["white shirt", "trousers"])
+        item, source = await heuristic_resolve("okay lets buy that", state)
+        assert item == "white shirt"
+        assert source == "heuristic:suggested"
+
+    async def test_singular_pronoun_it_resolves_to_first_suggested_item(self):
+        state = new_session()
+        set_last_mentioned_item(state, "blue shoes")
+        set_last_suggested_items(state, ["white shirt", "trousers"])
+        item, source = await heuristic_resolve("can i buy it", state)
+        assert item == "white shirt"
+        assert source == "heuristic:suggested"
+
     async def test_bulk_pronoun_falls_back_to_last_mentioned_when_no_suggestions(self):
         state = new_session()
         set_last_mentioned_item(state, "navy blazer")
         item, source = await heuristic_resolve("i want to buy those", state)
         assert item == "navy blazer"
+        assert source == "heuristic:last_mentioned"
+
+    async def test_singular_pronoun_falls_back_to_last_mentioned_when_no_suggestions(self):
+        state = new_session()
+        set_last_mentioned_item(state, "white shirt")
+        item, source = await heuristic_resolve("okay lets buy that", state)
+        assert item == "white shirt"
         assert source == "heuristic:last_mentioned"
 
 

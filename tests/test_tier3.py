@@ -136,8 +136,10 @@ async def test_llm_resolve_returns_llm_item():
     state = new_session()
     add_wardrobe_item(state, "navy blazer")
 
+    # Use an utterance with a specific item name (not a bare pronoun) so the
+    # pronoun early-exit doesn't fire and the LLM path is exercised.
     with patch("httpx.AsyncClient", return_value=_mock_ollama_response("navy blazer")):
-        item, source = await llm_resolve("can I buy it?", state)
+        item, source = await llm_resolve("can I buy my navy blazer?", state)
 
     assert item == "navy blazer"
     assert source == "llm"
@@ -206,6 +208,29 @@ async def test_llm_resolve_falls_back_on_http_error():
 
     # Falls back to heuristic with no wardrobe or last_mentioned.
     assert source in ("none", "explicit", "heuristic:last_mentioned")
+
+
+# ---------------------------------------------------------------------------
+# llm_resolve — pronoun early-exit (skips Ollama entirely)
+# ---------------------------------------------------------------------------
+
+async def test_llm_resolve_skips_ollama_for_singular_pronoun_with_suggestion():
+    state = new_session()
+    from mrshop.memory.session import set_last_suggested_items, set_last_mentioned_item
+    set_last_mentioned_item(state, "blue shoes")
+    set_last_suggested_items(state, ["white shirt", "trousers"])
+    # No httpx mock needed — Ollama should never be called
+    item, source = await llm_resolve("okay lets buy that", state)
+    assert item == "white shirt"
+    assert source == "heuristic:suggested"
+
+async def test_llm_resolve_skips_ollama_for_singular_pronoun_falls_back_to_last_mentioned():
+    state = new_session()
+    from mrshop.memory.session import set_last_mentioned_item
+    set_last_mentioned_item(state, "white shirt")
+    item, source = await llm_resolve("okay lets buy that", state)
+    assert item == "white shirt"
+    assert source == "heuristic:last_mentioned"
 
 
 # ---------------------------------------------------------------------------

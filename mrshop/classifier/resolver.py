@@ -48,8 +48,11 @@ _ITEM_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-_BULK_REF_RE = re.compile(
-    r"\b(those|them|these|all of them|the ones|those items|these items|they)\b",
+# Covers both plural ("those items", "them") and singular ("it", "that", "this") pronouns.
+# Singular pronouns resolve to the first suggested item or last_mentioned_item.
+# Plural pronouns also trigger bulk-buy logic in the purchase tool.
+_PRONOUN_RE = re.compile(
+    r"\b(it|that|this|this one|those|them|these|all of them|the ones|those items|these items|they)\b",
     re.IGNORECASE,
 )
 
@@ -84,8 +87,8 @@ async def heuristic_resolve(utterance: str, memory: dict) -> tuple[Optional[str]
         item = f"{adjective} {noun}".strip().lower() if adjective else noun.lower()
         return item, "explicit"
 
-    # 2.5. Bulk-reference pronoun ("those", "them", "these") → prefer last suggested items
-    if _BULK_REF_RE.search(utterance):
+    # 2.5. Any pronoun ("those", "them", "it", "that", "this") → prefer last suggested items
+    if _PRONOUN_RE.search(utterance):
         suggested = memory.get("last_suggested_items", [])
         if suggested:
             return suggested[0], "heuristic:suggested"
@@ -139,10 +142,18 @@ async def llm_resolve(utterance: str, memory: dict) -> tuple[Optional[str], str]
       - Ollama is unreachable
       - The HTTP request fails
       - The response is empty or "none"
+      - The utterance is pronoun-only (no extractable clothing noun) — the heuristic
+        resolver has more reliable context than a small LLM in this case.
 
     This guarantees degraded mode always works even when LLM_ENABLED=true
     but Ollama becomes unavailable mid-session.
     """
+    # Skip the LLM when the utterance is just a pronoun ("okay lets buy that",
+    # "add it", "buy those") — the heuristic context (last_suggested_items,
+    # last_mentioned_item) gives a more reliable answer than asking a 3B model.
+    if _PRONOUN_RE.search(utterance) and not _ITEM_PATTERN.search(utterance):
+        return await heuristic_resolve(utterance, memory)
+
     import httpx  # imported here so the module loads without httpx in test-only envs
 
     host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
