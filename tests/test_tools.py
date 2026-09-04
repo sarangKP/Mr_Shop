@@ -1,0 +1,167 @@
+"""
+Unit tests for the tool layer (mrshop/tools/).
+
+All tools take plain data + a session_state dict and return plain dicts.
+No mocking needed — state is constructed directly with new_session().
+"""
+
+from mrshop.memory.session import new_session, get, add_wardrobe_item, set_last_mentioned_item
+from mrshop.tools.wardrobe import wardrobe_upload
+from mrshop.tools.styling import styling_advice
+from mrshop.tools.purchase import purchase
+from mrshop.tools.booking import booking
+
+
+# ---------------------------------------------------------------------------
+# wardrobe_upload
+# ---------------------------------------------------------------------------
+
+def test_wardrobe_upload_adds_item():
+    state = new_session()
+    result = wardrobe_upload("navy blazer", state)
+    assert result["status"] == "added"
+    assert result["item"] == "navy blazer"
+    assert "navy blazer" in get(state, "wardrobe_items")
+
+
+def test_wardrobe_upload_reports_wardrobe_size():
+    state = new_session()
+    wardrobe_upload("navy blazer", state)
+    result = wardrobe_upload("white t-shirt", state)
+    assert result["wardrobe_size"] == 2
+
+
+def test_wardrobe_upload_duplicate_returns_already_owned():
+    state = new_session()
+    wardrobe_upload("navy blazer", state)
+    result = wardrobe_upload("navy blazer", state)
+    assert result["status"] == "already_owned"
+    # Still only one copy in the wardrobe.
+    assert get(state, "wardrobe_items").count("navy blazer") == 1
+
+
+def test_wardrobe_upload_sets_last_mentioned_item():
+    state = new_session()
+    wardrobe_upload("navy blazer", state)
+    assert get(state, "last_mentioned_item") == "navy blazer"
+
+
+# ---------------------------------------------------------------------------
+# styling_advice
+# ---------------------------------------------------------------------------
+
+def test_styling_advice_returns_suggestions():
+    state = new_session()
+    result = styling_advice("what goes with dark blue jeans?", state)
+    assert "suggestions" in result
+    assert len(result["suggestions"]) > 0
+
+
+def test_styling_advice_includes_query():
+    state = new_session()
+    query = "what goes with dark blue jeans?"
+    result = styling_advice(query, state)
+    assert result["query"] == query
+
+
+def test_styling_advice_surfaces_relevant_wardrobe_items():
+    state = new_session()
+    add_wardrobe_item(state, "navy blazer")
+    add_wardrobe_item(state, "white t-shirt")
+    result = styling_advice("how should I style my blazer?", state)
+    # "blazer" appears in the wardrobe item — should be surfaced
+    assert "navy blazer" in result["based_on_wardrobe"]
+
+
+def test_styling_advice_empty_wardrobe():
+    state = new_session()
+    result = styling_advice("what should I wear today?", state)
+    assert result["based_on_wardrobe"] == []
+
+
+def test_styling_advice_jeans_query_picks_jeans_suggestions():
+    state = new_session()
+    result = styling_advice("what goes with my jeans?", state)
+    # Jeans suggestions mention specific pairings — spot-check one keyword.
+    combined = " ".join(result["suggestions"]).lower()
+    assert "shirt" in combined or "sneakers" in combined or "boots" in combined
+
+
+# ---------------------------------------------------------------------------
+# purchase
+# ---------------------------------------------------------------------------
+
+def test_purchase_returns_purchase_initiated():
+    state = new_session()
+    result = purchase("navy blazer", state)
+    assert result["status"] == "purchase_initiated"
+    assert result["item"] == "navy blazer"
+
+
+def test_purchase_returns_price():
+    state = new_session()
+    result = purchase("navy blazer", state)
+    assert isinstance(result["price_usd"], float)
+    assert result["price_usd"] > 0
+
+
+def test_purchase_known_item_has_mock_price():
+    state = new_session()
+    result = purchase("navy blazer", state)
+    assert result["price_usd"] == 189.99
+
+
+def test_purchase_creates_cart():
+    state = new_session()
+    purchase("navy blazer", state)
+    assert "cart" in state
+    assert "navy blazer" in state["cart"]
+
+
+def test_purchase_accumulates_cart():
+    state = new_session()
+    purchase("navy blazer", state)
+    purchase("white t-shirt", state)
+    assert len(state["cart"]) == 2
+
+
+def test_purchase_sets_last_mentioned_item():
+    state = new_session()
+    purchase("navy blazer", state)
+    assert get(state, "last_mentioned_item") == "navy blazer"
+
+
+# ---------------------------------------------------------------------------
+# booking
+# ---------------------------------------------------------------------------
+
+def test_booking_returns_booked():
+    state = new_session()
+    result = booking("Friday afternoon", state)
+    assert result["status"] == "booked"
+
+
+def test_booking_echoes_slot():
+    state = new_session()
+    result = booking("Friday afternoon", state)
+    assert result["slot"] == "Friday afternoon"
+
+
+def test_booking_returns_stylist():
+    state = new_session()
+    result = booking("Friday afternoon", state)
+    assert isinstance(result["stylist"], str)
+    assert len(result["stylist"]) > 0
+
+
+def test_booking_returns_confirmation_id():
+    state = new_session()
+    result = booking("Friday afternoon", state)
+    assert result["confirmation"].startswith("MRSHOP-")
+
+
+def test_booking_different_slots_different_confirmations():
+    state = new_session()
+    r1 = booking("Friday afternoon", state)
+    r2 = booking("Monday morning", state)
+    assert r1["confirmation"] != r2["confirmation"]

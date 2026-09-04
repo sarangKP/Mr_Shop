@@ -8,3 +8,18 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Test / tool caches
+.pytest_cache/
+
+# Logs
+*.log
+
+# Local environment — never commit secrets
+.env
+.env.local
+.env.*.local
+
+# Internal AI coding instructions
+CLAUDE.md
+

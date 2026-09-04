@@ -1,7 +1,52 @@
 [project]
-name = "dr-tracker"
+name = "mrshop"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
+description = "Mr.Shop ambient conversation & orchestration layer prototype"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    # Tier 2 classification — semantic embedding model
+    "sentence-transformers>=3.0",
+    # HTTP client for Ollama (Tier 3, Step 9)
+    "httpx>=0.27",
+    # Session persistence — redis[hiredis] uses the faster C-extension parser
+    "redis[hiredis]>=5.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project.scripts]
+mrshop = "mrshop.conversation.repl:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    # In-memory Redis mock for storage tests — no real Redis server needed
+    "fakeredis>=2.0",
+]
+
+[tool.uv]
+# Pull CPU-only torch wheels from the PyTorch CPU wheel index.
+# This keeps the Docker image ~300 MB instead of ~2.5 GB.
+# nvidia-* packages are not needed — we run on CPU only (no working GPU driver).
+torch-backend = "cpu"
+extra-index-url = ["https://download.pytorch.org/whl/cpu"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+# ROS2 registers launch_testing as a pytest plugin system-wide via PYTHONPATH;
+# it fails to import in our venv (missing 'lark'), so we block it explicitly.
+addopts = [
+    # ROS2 registers several broken pytest plugins via PYTHONPATH; block them all.
+    "-p", "no:launch_testing",
+    "-p", "no:launch_ros",
+    "-p", "no:ament_flake8",
+    "-p", "no:ament_xmllint",
+    "-p", "no:ament_copyright",
+    "-p", "no:ament_pep257",
+    "-p", "no:ament_lint",
+    "-p", "no:colcon_core_warnings_stderr",
+]
