@@ -36,6 +36,7 @@ def purchase(item: str, state: dict) -> dict:
 
     price = _MOCK_PRICES.get(item.lower(), _DEFAULT_PRICE)
     session.add_to_cart(state, item)
+    session.add_wardrobe_item(state, item)
     session.set_last_mentioned_item(state, item)
 
     return {
@@ -43,6 +44,7 @@ def purchase(item: str, state: dict) -> dict:
         "item": item,
         "price_usd": price,
         "cart": list(state["cart"]),
+        "wardrobe_items": list(state["wardrobe_items"]),
     }
 
 

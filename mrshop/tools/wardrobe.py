@@ -85,11 +85,13 @@ register(ToolDefinition(
     intent="wardrobe_list",
     tier1_priority=20,
     tier1_patterns=[
-        r"\bwhat (do i|have i|items? do i|stuff do i) (have|own|got)\b",
-        r"\b(show|list|display) (me |my )?(wardrobe|closet|items?|clothes|inventory)\b",
+        r"\bwhat (all )?do i (have|own|got)( in my (wardrobe|closet))?\b",
+        r"\bwhat (have i|items? do i|stuff do i) (have|own|got)\b",
+        r"\b(show|list|display) (me )?(my )?(wardrobe|closet|items?|clothes|inventory)\b",
         r"\bwhat('s| is) in my (wardrobe|closet)\b",
         r"\bwhat (all |else )?(do i|can i) (see|check|find)\b",
         r"\b(all )?(my )?(current )?(wardrobe|closet|items?|clothes) (i have|i own|in total)\b",
+        r"\bwhat (clothes|items?|stuff) (do i|have i) (have|own|got)\b",
     ],
     tier2_examples=[
         "Please show me everything in my wardrobe",
@@ -99,6 +101,8 @@ register(ToolDefinition(
         "What is currently stored in my closet?",
         "Display my wardrobe summary",
         "Can you list all the garments I own?",
+        "What all do I have in my wardrobe?",
+        "What's currently in my wardrobe?",
     ],
     llm_instruction=(
         "List the user's wardrobe items conversationally. If the wardrobe is empty, "

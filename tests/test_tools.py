@@ -131,6 +131,19 @@ def test_purchase_sets_last_mentioned_item():
     assert get(state, "last_mentioned_item") == "navy blazer"
 
 
+def test_purchase_adds_item_to_wardrobe():
+    state = new_session()
+    purchase("navy blazer", state)
+    assert "navy blazer" in get(state, "wardrobe_items")
+
+
+def test_purchase_wardrobe_and_cart_both_updated():
+    state = new_session()
+    purchase("white shirt", state)
+    assert "white shirt" in state["cart"]
+    assert "white shirt" in state["wardrobe_items"]
+
+
 # ---------------------------------------------------------------------------
 # booking
 # ---------------------------------------------------------------------------

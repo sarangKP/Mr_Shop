@@ -47,6 +47,23 @@ def test_intents_contains_all_expected():
 
 
 # ---------------------------------------------------------------------------
+# wardrobe_list — clear hits (including natural "what all do i have" phrasing)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("utterance", [
+    "what do i have in my wardrobe",
+    "what all do i have in my wardrobe",
+    "now what all do i have in my wardrobe",
+    "show me my wardrobe",
+    "list my clothes",
+    "what's in my closet",
+    "what do i own",
+])
+def test_wardrobe_list_clear_hits(utterance):
+    assert_intent(utterance, "wardrobe_list")
+
+
+# ---------------------------------------------------------------------------
 # wardrobe_upload — clear hits
 # ---------------------------------------------------------------------------
 
