@@ -158,7 +158,7 @@ flowchart TD
     J1 & J2 & J3 & J4 & J5 & J6 --> K
 
     subgraph Memory ["Session Memory (Redis-backed)"]
-        K[(wardrobe_items · cart (transient)\ngender · budget\npreferences: style + colors\nlast_mentioned_item · last_suggested_items\ntopic_history)]
+        K[("wardrobe_items · cart — transient\ngender · budget\npreferences: style + colors\nlast_mentioned_item · last_suggested_items\ntopic_history")]
     end
 
     K --> L
