@@ -94,6 +94,23 @@ redis-cli monitor
 ## Architecture
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {
+  'primaryColor': '#2d1b69',
+  'primaryTextColor': '#e8d5ff',
+  'primaryBorderColor': '#7c3aed',
+  'lineColor': '#9f67ff',
+  'secondaryColor': '#1e1040',
+  'tertiaryColor': '#16082e',
+  'background': '#0f0520',
+  'mainBkg': '#2d1b69',
+  'nodeBorder': '#7c3aed',
+  'clusterBkg': '#1a0d3d',
+  'clusterBorder': '#6d28d9',
+  'titleColor': '#c4b5fd',
+  'edgeLabelBackground': '#1a0d3d',
+  'attributeBackgroundColorOdd': '#2d1b69',
+  'attributeBackgroundColorEven': '#1e1040'
+}}}%%
 flowchart TD
     A([User utterance]) --> B
 
@@ -155,6 +172,32 @@ flowchart TD
 
     N --> O([Natural reply → terminal])
     M --> O
+
+    style A fill:#4c1d95,stroke:#7c3aed,color:#e8d5ff
+    style O fill:#4c1d95,stroke:#7c3aed,color:#e8d5ff
+    style D fill:#3b0764,stroke:#9333ea,color:#e8d5ff
+    style H fill:#3b0764,stroke:#9333ea,color:#e8d5ff
+    style E fill:#5b21b6,stroke:#a855f7,color:#e8d5ff
+    style I fill:#5b21b6,stroke:#a855f7,color:#e8d5ff
+    style L fill:#5b21b6,stroke:#a855f7,color:#e8d5ff
+    style B fill:#2e1065,stroke:#7c3aed,color:#ddd6fe
+    style C fill:#2e1065,stroke:#7c3aed,color:#ddd6fe
+    style SC1 fill:#1e0a4a,stroke:#6d28d9,color:#c4b5fd
+    style SC2 fill:#1e0a4a,stroke:#6d28d9,color:#c4b5fd
+    style SC3 fill:#1e0a4a,stroke:#6d28d9,color:#c4b5fd
+    style E0 fill:#1e0a4a,stroke:#6d28d9,color:#c4b5fd
+    style E1 fill:#1e0a4a,stroke:#6d28d9,color:#c4b5fd
+    style F fill:#2e1065,stroke:#9333ea,color:#ddd6fe
+    style G fill:#1e0a4a,stroke:#6d28d9,color:#c4b5fd
+    style J1 fill:#1e0a4a,stroke:#6d28d9,color:#c4b5fd
+    style J2 fill:#1e0a4a,stroke:#6d28d9,color:#c4b5fd
+    style J3 fill:#1e0a4a,stroke:#6d28d9,color:#c4b5fd
+    style J4 fill:#1e0a4a,stroke:#6d28d9,color:#c4b5fd
+    style J5 fill:#1e0a4a,stroke:#6d28d9,color:#c4b5fd
+    style J6 fill:#1e0a4a,stroke:#6d28d9,color:#c4b5fd
+    style K fill:#2e1065,stroke:#9333ea,color:#ddd6fe
+    style M fill:#2e1065,stroke:#9333ea,color:#ddd6fe
+    style N fill:#1e0a4a,stroke:#6d28d9,color:#c4b5fd
 ```
 
 ---
