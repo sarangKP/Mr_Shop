@@ -158,7 +158,7 @@ flowchart TD
     J1 & J2 & J3 & J4 & J5 & J6 --> K
 
     subgraph Memory ["Session Memory (Redis-backed)"]
-        K[(wardrobe_items · cart\ngender · budget\npreferences: style + colors\nlast_mentioned_item\ntopic_history)]
+        K[(wardrobe_items · cart (transient)\ngender · budget\npreferences: style + colors\nlast_mentioned_item · last_suggested_items\ntopic_history)]
     end
 
     K --> L
@@ -205,7 +205,7 @@ flowchart TD
 ## Running Tests
 
 ```bash
-uv run pytest -q          # 195 tests, all passing
+uv run pytest -q          # 224 tests, all passing
 ```
 
 Individual suites:
@@ -276,13 +276,14 @@ across sessions via Redis. The user never needs to repeat themselves.
 
 | Field | What it captures | How it's populated |
 |-------|-----------------|-------------------|
-| `wardrobe_items` | All clothing items the user owns | `wardrobe_upload` tool |
-| `cart` | Items added via the purchase tool | `purchase` tool |
+| `wardrobe_items` | All clothing items the user owns — populated by wardrobe upload **and purchase** | `wardrobe_upload` + `purchase` tools |
+| `cart` | Transient purchase basket — cleared automatically after each fulfilled order | `purchase` tool |
 | `gender` | Self-identification — asked once at startup | startup prompt + regex side-channel |
 | `budget` | Stated budget ("$200", "budget of 150") | regex side-channel |
 | `preferences.style` | Style preference ("I love minimalist") | regex side-channel |
 | `preferences.colors` | Favourite colours — union across turns | regex side-channel |
-| `last_mentioned_item` | Most recently referenced item — resolves "it"/"that" | resolver + tools |
+| `last_mentioned_item` | Most recently referenced item — fallback when no suggestion context exists | resolver + tools |
+| `last_suggested_items` | Items from the most recent styling suggestion — resolved first when user says "buy that" / "those items" | `styling_advice` tool |
 | `topic_history` | Ordered list of past intents | orchestrator |
 | `current_topic` | Active intent | orchestrator |
 
@@ -292,10 +293,10 @@ style/colour preferences are extracted and written to session memory regardless
 of the classified intent — a user mentioning "I prefer earth tones" mid-purchase
 gets that preference stored and injected into every subsequent LLM reply.
 
-**Reference resolution** (`mrshop/classifier/resolver.py`): When a user says "style it"
-or "buy that", the resolver maps the pronoun to the correct wardrobe item:
-- `heuristic_resolve` — regex clothing-noun extraction + `last_mentioned_item` fallback
-- `llm_resolve` — Ollama prompt with full wardrobe context for ambiguous references
+**Reference resolution** (`mrshop/classifier/resolver.py`): When a user says "style it",
+"buy that", or "purchase those items", the resolver maps the pronoun to the correct item:
+- `heuristic_resolve` — clothing-noun regex → pronoun check against `last_suggested_items` → `last_mentioned_item` fallback
+- `llm_resolve` — Ollama prompt (with wardrobe + `last_suggested_items` context) for specific item references; skips Ollama entirely for pronoun-only utterances ("buy that", "add it") where the heuristic context is more reliable than a small LLM
 
 Resolution is skipped entirely for `unclear` intent — there is no item to resolve,
 and running the resolver on greetings caused junk words to pollute `last_mentioned_item`.
@@ -314,10 +315,11 @@ Mr.Shop: Your navy blazer pairs beautifully with dark blue jeans...
   trace → intent=styling_advice (rule, 1.0) | topic_switch=True
 
 You: I want to buy that jacket
-Mr.Shop: Purchase started for 'navy blazer' at $189.99. Your cart now has 1 item.
+Mr.Shop: Purchase started for 'navy blazer' at $189.99. Added to your wardrobe.
   trace → intent=purchase (rule, 1.0) | topic_switch=True | resolver=llm
                                         ↑ "that jacket" resolved to "navy blazer"
                                           via LLM using last_mentioned_item context
+                                        ↑ cart cleared after fulfilment; item now in wardrobe
 
 You: Book me a stylist call Friday
 Mr.Shop: Booked! Stylist Alex will see you Friday at 2pm. Confirmation: MRSHOP-4821.
@@ -325,8 +327,9 @@ Mr.Shop: Booked! Stylist Alex will see you Friday at 2pm. Confirmation: MRSHOP-4
 ```
 
 What the memory layer preserved across all four turns:
-- `wardrobe_items = ["navy blazer"]` — never re-stated
+- `wardrobe_items = ["navy blazer"]` — added at upload, confirmed again after purchase
 - `last_mentioned_item = "navy blazer"` — resolved "that jacket" correctly in turn 3
+- `cart = []` — cleared after the purchase was fulfilled
 - `topic_history = ["wardrobe_upload", "styling_advice", "purchase"]` — full audit trail
 
 ---
@@ -399,6 +402,6 @@ mrshop/
     orchestrator.py     # routes turns, side-channel extraction, owns turn_trace
   conversation/
     repl.py             # terminal REPL — streaming output, gender prompt, pure I/O
-tests/                  # 195 tests across 7 files (fakeredis — no real services needed)
+tests/                  # 224 tests across 7 files (fakeredis — no real services needed)
 DESIGN.md               # example conversations + design decisions
 ```
