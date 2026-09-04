@@ -8,19 +8,19 @@ from mrshop.tools.registry import ToolDefinition, register
 # to exercise the full pipeline end-to-end.
 _SUGGESTIONS = {
     "jeans": [
-        "White Oxford shirt + leather loafers",
-        "Navy blazer + white t-shirt + white sneakers",
-        "Chunky knit sweater + Chelsea boots",
+        {"text": "White Oxford shirt + leather loafers", "items": ["white oxford shirt", "leather loafers"]},
+        {"text": "Navy blazer + white t-shirt + white sneakers", "items": ["navy blazer", "white t-shirt", "white sneakers"]},
+        {"text": "Chunky knit sweater + Chelsea boots", "items": ["chunky knit sweater", "chelsea boots"]},
     ],
     "blazer": [
-        "Slim chinos + loafers + pocket square",
-        "Dark jeans + plain tee + white sneakers",
-        "Tailored trousers + turtleneck",
+        {"text": "Slim chinos + loafers + pocket square", "items": ["slim chinos", "loafers", "pocket square"]},
+        {"text": "Dark jeans + plain tee + white sneakers", "items": ["dark jeans", "plain tee", "white sneakers"]},
+        {"text": "Tailored trousers + turtleneck", "items": ["tailored trousers", "turtleneck"]},
     ],
     "default": [
-        "Classic white shirt + well-fitted trousers",
-        "Neutral-toned layers — works for most pieces",
-        "Monochrome outfit with one contrasting accessory",
+        {"text": "Classic white shirt + well-fitted trousers", "items": ["white shirt", "trousers"]},
+        {"text": "Neutral-toned layers — works for most pieces", "items": ["neutral-toned cardigan", "neutral-toned trousers"]},
+        {"text": "Monochrome outfit with one contrasting accessory", "items": ["monochrome top", "monochrome trousers", "contrasting accessory"]},
     ],
 }
 
@@ -54,8 +54,12 @@ def styling_advice(query: str, state: dict) -> dict:
     # Surface any wardrobe items that are relevant to the query.
     relevant = [item for item in wardrobe if any(w in lower for w in item.lower().split())]
 
+    suggestion_entries = _SUGGESTIONS[key]
+    all_items = [item for entry in suggestion_entries for item in entry["items"]]
+    session.set_last_suggested_items(state, all_items)
+
     return {
-        "suggestions": _SUGGESTIONS[key],
+        "suggestions": [entry["text"] for entry in suggestion_entries],
         "based_on_wardrobe": relevant,
         "query": query,
     }

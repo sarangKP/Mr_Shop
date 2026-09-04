@@ -165,3 +165,72 @@ def test_booking_different_slots_different_confirmations():
     r1 = booking("Friday afternoon", state)
     r2 = booking("Monday morning", state)
     assert r1["confirmation"] != r2["confirmation"]
+
+
+# ---------------------------------------------------------------------------
+# styling_advice — last_suggested_items tracking
+# ---------------------------------------------------------------------------
+
+def test_styling_advice_stores_suggested_items_in_session():
+    state = new_session()
+    styling_advice("what should I wear for a job interview", state)
+    suggested = get(state, "last_suggested_items")
+    assert isinstance(suggested, list)
+    assert len(suggested) > 0
+
+
+def test_styling_advice_suggested_items_are_strings():
+    state = new_session()
+    styling_advice("what goes with jeans", state)
+    suggested = get(state, "last_suggested_items")
+    assert all(isinstance(item, str) for item in suggested)
+
+
+def test_styling_advice_replaces_previous_suggested_items():
+    state = new_session()
+    styling_advice("what goes with jeans", state)
+    first_suggested = list(get(state, "last_suggested_items"))
+    styling_advice("what goes with a blazer", state)
+    second_suggested = get(state, "last_suggested_items")
+    assert second_suggested != first_suggested
+
+
+# ---------------------------------------------------------------------------
+# purchase — wardrobe guard + bulk purchase
+# ---------------------------------------------------------------------------
+
+from mrshop.memory.session import set_last_suggested_items
+from mrshop.tools.purchase import _run_purchase
+
+
+def test_purchase_returns_already_owned_for_wardrobe_item():
+    state = new_session()
+    add_wardrobe_item(state, "blue shoes")
+    result = purchase("blue shoes", state)
+    assert result["status"] == "already_owned"
+    assert state["cart"] == []
+
+
+def test_purchase_adds_non_wardrobe_item_to_cart():
+    state = new_session()
+    result = purchase("white shirt", state)
+    assert result["status"] == "purchase_initiated"
+    assert "white shirt" in state["cart"]
+
+
+def test_run_purchase_bulk_buys_suggested_items_excluding_wardrobe():
+    state = new_session()
+    add_wardrobe_item(state, "blue shoes")
+    set_last_suggested_items(state, ["white shirt", "trousers", "blue shoes"])
+    result = _run_purchase("i want to purchase those items", None, state)
+    assert result["status"] == "bulk_purchase"
+    assert "blue shoes" not in state["cart"]
+    assert "white shirt" in state["cart"]
+    assert "trousers" in state["cart"]
+
+
+def test_run_purchase_single_resolved_item_when_no_bulk_pronoun():
+    state = new_session()
+    result = _run_purchase("i want to buy a white shirt", "white shirt", state)
+    assert result["status"] == "purchase_initiated"
+    assert state["cart"] == ["white shirt"]

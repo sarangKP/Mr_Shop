@@ -1,6 +1,6 @@
 """Purchase tool — mocked buy / price-check flow."""
 
-import random
+import re
 from mrshop.memory import session
 from mrshop.tools.registry import ToolDefinition, register
 
@@ -14,25 +14,27 @@ _MOCK_PRICES: dict[str, float] = {
 }
 _DEFAULT_PRICE = 99.99
 
+_BULK_REF_RE = re.compile(
+    r"\b(those|them|these|all of them|the ones|those items|these items)\b",
+    re.IGNORECASE,
+)
+
 
 def purchase(item: str, state: dict) -> dict:
     """
     Initiate a mocked purchase for *item* and record it in session state.
 
-    Args:
-        item:  The resolved item the user wants to buy (e.g. "navy blazer").
-        state: Live session_state dict; a "cart" key is created/appended to.
-
-    Returns:
-        {
-            "status": "purchase_initiated",
-            "item": item,
-            "price_usd": float,
-            "cart": [str, ...],   # full cart after this purchase
-        }
+    Returns already_owned (without touching the cart) if the item is in the wardrobe.
     """
-    price = _MOCK_PRICES.get(item.lower(), _DEFAULT_PRICE)
+    wardrobe = session.get(state, "wardrobe_items")
+    if item in wardrobe:
+        return {
+            "status": "already_owned",
+            "item": item,
+            "message": f"{item!r} is already in your wardrobe — no need to buy it again.",
+        }
 
+    price = _MOCK_PRICES.get(item.lower(), _DEFAULT_PRICE)
     session.add_to_cart(state, item)
     session.set_last_mentioned_item(state, item)
 
@@ -42,6 +44,27 @@ def purchase(item: str, state: dict) -> dict:
         "price_usd": price,
         "cart": list(state["cart"]),
     }
+
+
+def _run_purchase(utterance: str, resolved_item, state: dict) -> dict:
+    # Bulk reference ("those items", "them") + suggestions available → buy all non-wardrobe suggested items.
+    if _BULK_REF_RE.search(utterance or ""):
+        suggested = session.get(state, "last_suggested_items")
+        wardrobe = session.get(state, "wardrobe_items")
+        if suggested:
+            items_to_buy = [item for item in suggested if item not in wardrobe]
+            results = [purchase(item, state) for item in items_to_buy]
+            return {
+                "status": "bulk_purchase",
+                "items_purchased": items_to_buy,
+                "results": results,
+                "cart": list(state["cart"]),
+            }
+
+    if resolved_item:
+        return purchase(resolved_item, state)
+
+    return {}
 
 
 # ---------------------------------------------------------------------------
@@ -72,5 +95,5 @@ register(ToolDefinition(
         "Confirm the purchase intent, mention the price, and acknowledge the cart. "
         "If you assumed an item, say so naturally. 1–2 sentences."
     ),
-    run=lambda utterance, resolved_item, state: purchase(resolved_item or utterance, state),
+    run=_run_purchase,
 ))
