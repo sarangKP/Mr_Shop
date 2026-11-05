@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mr.Shop</title>
+<style>
+  :root {
+    --bg: #000; --panel: #0a0a0a; --panel2: #161616; --line: #2a2a2a;
+    --text: #f2f2f2; --muted: #8a8a8a; --accent: #fff; --accent2: #fff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; height: 100vh; background: var(--bg); color: var(--text);
+    font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+    display: flex; justify-content: center;
+  }
+  .app { display: flex; width: 100%; max-width: 1000px; height: 100%; }
+  aside {
+    width: 260px; padding: 20px 16px; background: var(--panel);
+    border-right: 1px solid var(--line); overflow-y: auto; flex-shrink: 0;
+  }
+  aside h2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 18px 0 8px; }
+  aside h2:first-child { margin-top: 0; }
+  .brand { font-size: 20px; font-weight: 700; }
+  .brand small { display: block; font-size: 12px; font-weight: 400; color: var(--muted); }
+  .tag { display: inline-block; background: var(--panel2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; margin: 0 4px 4px 0; font-size: 13px; }
+  .empty { color: var(--muted); font-size: 13px; }
+  .reset { margin-top: 20px; background: none; border: 1px solid var(--line); color: var(--muted); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+  .reset:hover { color: var(--text); border-color: var(--accent); }
+  main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  header { display: none; padding: 12px 16px; border-bottom: 1px solid var(--line); font-weight: 700; background: var(--panel); }
+  #log { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+  .row { display: flex; flex-direction: column; max-width: 80%; }
+  .row.user { align-self: flex-end; align-items: flex-end; }
+  .row.bot { align-self: flex-start; }
+  .bubble { padding: 10px 14px; border-radius: 16px; white-space: pre-wrap; word-wrap: break-word; }
+  .user .bubble { background: #fff; color: #000; border-bottom-right-radius: 4px; }
+  .bot .bubble { background: var(--panel2); border-bottom-left-radius: 4px; }
+  .trace { margin-top: 4px; font-size: 11px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+  .chips { display: flex; gap: 8px; padding: 0 20px 8px; flex-wrap: wrap; }
+  .chip { background: none; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font-size: 13px; cursor: pointer; }
+  .chip:hover { color: var(--text); border-color: var(--accent); }
+  form { display: flex; gap: 8px; padding: 12px 20px 20px; }
+  input { flex: 1; background: var(--panel); border: 1px solid var(--line); color: var(--text); border-radius: 12px; padding: 12px 14px; font: inherit; outline: none; }
+  input:focus { border-color: var(--accent); }
+  button.send { background: #fff; color: #000; border: 0; border-radius: 12px; padding: 0 20px; font: inherit; cursor: pointer; }
+  button.send:hover { background: #cfcfcf; }
+  @media (max-width: 720px) {
+    aside { display: none; }
+    header { display: block; }
+    .row { max-width: 90%; }
+    #log { padding: 14px; }
+    .chips, form { padding-left: 14px; padding-right: 14px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">Mr.Shop<small>Personal Styling Assistant</small></div>
+    <h2>Wardrobe</h2><div id="wardrobe"><span class="empty">Nothing yet</span></div>
+    <h2>Budget</h2><div id="budget"><span class="empty">Not set</span></div>
+    <h2>Preferences</h2><div id="prefs"><span class="empty">None yet</span></div>
+    <h2>Topic history</h2><div id="topics"><span class="empty">None yet</span></div>
+    <h2>Services</h2><div id="svc" class="empty"></div>
+    <button class="reset" id="reset">Reset session</button>
+  </aside>
+  <main>
+    <header>Mr.Shop</header>
+    <div id="log"></div>
+    <div class="chips" id="chips"></div>
+    <form id="form">
+      <input id="inp" autocomplete="off" placeholder="Say something, e.g. I just got a navy blazer">
+      <button class="send">Send</button>
+    </form>
+  </main>
+</div>
+<script>
+const log = document.getElementById('log'), inp = document.getElementById('inp');
+const SUGGEST = ["I just got a navy blazer", "What goes with dark blue jeans?", "I want to buy that jacket", "Book me a stylist call Friday", "What do I have?"];
+const chips = document.getElementById('chips');
+SUGGEST.forEach(s => { const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.textContent = s; b.onclick = () => send(s); chips.appendChild(b); });
+
+function add(who, text, trace) {
+  const r = document.createElement('div'); r.className = 'row ' + who;
+  const b = document.createElement('div'); b.className = 'bubble'; b.textContent = text; r.appendChild(b);
+  if (trace) {
+    const t = document.createElement('div'); t.className = 'trace';
+    t.textContent = `intent=${trace.tools_invoked[0] || 'unclear'} · ${trace.intent_source} (${trace.confidence}) · ${trace.latency_ms.total_ms}ms` + (trace.topic_switch ? ' · topic switch' : '');
+    r.appendChild(t);
+  }
+  log.appendChild(r); log.scrollTop = log.scrollHeight; return b;
+}
+function tags(el, items, empty) {
+  el.innerHTML = '';
+  if (!items || !items.length) { el.innerHTML = `<span class="empty">${empty}</span>`; return; }
+  items.forEach(i => { const s = document.createElement('span'); s.className = 'tag'; s.textContent = i; el.appendChild(s); });
+}
+function render(s) {
+  tags(document.getElementById('wardrobe'), s.wardrobe, 'Nothing yet');
+  tags(document.getElementById('budget'), s.budget != null ? ['$' + s.budget] : [], 'Not set');
+  const p = s.preferences || {}, pl = [];
+  if (p.style) pl.push(p.style);
+  (p.colors || []).forEach(c => pl.push(c));
+  tags(document.getElementById('prefs'), pl, 'None yet');
+  tags(document.getElementById('topics'), s.topics, 'None yet');
+  document.getElementById('svc').textContent = `Redis: ${s.redis ? 'connected' : 'off'} · Tier 2: ${s.tier2 ? 'on' : 'off'} · LLM: off`;
+}
+async function type(el, text) {
+  el.textContent = '';
+  for (const ch of text) { el.textContent += ch; if (ch !== ' ') await new Promise(r => setTimeout(r, 8)); log.scrollTop = log.scrollHeight; }
+}
+async function send(text) {
+  text = text.trim(); if (!text) return;
+  add('user', text); inp.value = '';
+  const res = await fetch('/api/chat', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) });
+  const d = await res.json();
+  const b = add('bot', '', d.trace); await type(b, d.reply); render(d.state);
+}
+document.getElementById('form').onsubmit = e => { e.preventDefault(); send(inp.value); };
+document.getElementById('reset').onclick = async () => {
+  const s = await (await fetch('/api/reset', { method: 'POST' })).json();
+  log.innerHTML = ''; render(s); greet();
+};
+function greet() { add('bot', "Hi, I'm Mr.Shop. I can add clothes to your wardrobe, suggest outfits, help you buy items, or book a stylist."); }
+fetch('/api/state').then(r => r.json()).then(render);
+greet();
+</script>
+</body>
+</html>

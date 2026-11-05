@@ -1,95 +1,59 @@
-# Mr.Shop — Personal Styling Assistant
+<div align="center">
 
-Mr.Shop is a terminal-based AI conversation agent for a fashion app. You talk to it naturally — add clothes to your wardrobe, ask for outfit advice, buy items, or book a stylist — all in one flowing conversation without repeating yourself.
+# Mr.Shop
 
-It remembers everything: your wardrobe, your gender, your budget, your style preferences, and your conversation history. Sessions persist across restarts via Redis, so picking up where you left off is automatic.
+**Talk to your personal styling assistant. Add clothes to your wardrobe, get outfit advice, buy items and book a stylist, all in one conversation.**
 
----
+*Terminal agent with Redis memory, plus a simple chat website.*
 
-## Prerequisites
+<br>
 
-| Requirement | Version | Notes |
-|-------------|---------|-------|
-| Python | ≥ 3.13 | |
-| [uv](https://docs.astral.sh/uv/) | latest | package manager |
-| Redis | ≥ 7.0 | for session persistence (`sudo apt install redis-server`) |
-| [Ollama](https://ollama.com) | latest | optional — for LLM responses |
+![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
+![uv](https://img.shields.io/badge/uv-package%20manager-DE5FE9?logo=uv&logoColor=white)
+![Redis](https://img.shields.io/badge/Redis-7%2B-DC382D?logo=redis&logoColor=white)
+![Ollama](https://img.shields.io/badge/LLM-Ollama%20(optional)-000000?logo=ollama&logoColor=white)
+![Sentence Transformers](https://img.shields.io/badge/Embeddings-all--MiniLM--L6--v2-FFD21E?logo=huggingface&logoColor=black)
+![FastAPI](https://img.shields.io/badge/FastAPI-web%20demo-009688?logo=fastapi&logoColor=white)
+![pytest](https://img.shields.io/badge/Tests-pytest-0A9EDC?logo=pytest&logoColor=white)
+![Status](https://img.shields.io/badge/Status-prototype-yellow)
 
-**Ollama model** (if using LLM mode):
-```bash
-ollama pull llama3.2:3b
-```
+<br>
 
----
+<img src="images/hero.png" alt="Mr.Shop chat landing page" width="800">
 
-## Installation
+</div>
 
-```bash
-git clone <repo-url>
-cd dr_tracker
-uv sync
-```
+<br>
 
-That's it. All Python dependencies (sentence-transformers, httpx, redis, etc.) install automatically.
+## What it does
 
----
+You talk to it naturally. It figures out what you want, remembers the context, and replies:
 
-## Running
+- **wardrobe**: add items ("I just got a navy blazer") and list them
+- **styling advice**: outfit ideas based on what you own
+- **purchase**: "buy that jacket" is resolved to the right item from context
+- **booking**: book a stylist call
+- **memory**: gender, budget, style and colour preferences, last mentioned item and topic history are kept for the whole conversation and across restarts
 
-```bash
-uv run mrshop
-```
+<div align="center">
+<img src="images/chat.png" alt="Conversation with wardrobe, topic history and trace on each reply" width="800">
+</div>
 
-On first run you'll be asked for your gender (stored in Redis — not asked again). After that, just start talking.
+## Features
 
-```
-╔══════════════════════════════════════════════════════╗
-║          Mr.Shop — Personal Styling Assistant        ║
-╚══════════════════════════════════════════════════════╝
+- **Three-tier intent classification.** Tier 1 is keyword/regex (instant). Tier 2 is embedding similarity with `all-MiniLM-L6-v2`. Anything unclear goes to the LLM or a template reply.
+- **Reference resolution.** "it", "that" and "the jacket" are mapped to a real item using the last suggested or last mentioned item.
+- **Ambient memory.** Gender, budget and preferences are picked up from any message, whatever the intent.
+- **Redis sessions.** State is saved after every turn with a 24 hour TTL, keyed by user. If Redis is down it runs in memory only.
+- **Optional LLM.** With Ollama running, replies are streamed token by token. Without it, deterministic template replies are used.
+- **Plugin registry.** A new intent is one file with one `register()` call. No change to the classifier or orchestrator.
+- **Turn trace.** Every turn reports intent, source, confidence, resolver and latency per stage.
+- **Chat website.** A small FastAPI + HTML page (`web/`) that shows the same pipeline in a chat UI, with live session memory in the sidebar.
+- **Mobile friendly.** The chat page works on phone and laptop.
 
-[storage] Session restored from Redis (user=local, wardrobe=2 item(s))
-Ready!
-
-You: What goes with my navy blazer?
-Mr.Shop: Your navy blazer pairs really well with slim chinos and loafers for
-a smart casual look, or dark jeans and white sneakers if you want something
-more relaxed...
-```
-
-Type `quit` or press `Ctrl-C` to exit. Your session saves automatically.
-
-### Mode flags
-
-```bash
-uv run mrshop                       # auto — uses LLM if Ollama is reachable
-LLM_ENABLED=false uv run mrshop    # heuristic/template mode, no Ollama needed
-LLM_ENABLED=true uv run mrshop     # force LLM mode
-MRSHOP_USER_ID=alice uv run mrshop # separate session for a different user
-```
-
-### What you can say
-
-| What you want | Example |
-|---------------|---------|
-| Add an item to your wardrobe | "I just got a navy blazer" |
-| See your wardrobe | "What do I have?" / "Show my wardrobe" |
-| Get styling advice | "What goes with dark jeans?" / "Style it for a date night" |
-| Buy something | "I want to buy that jacket" / "How much does it cost?" |
-| Book a stylist | "Book me a stylist call Friday" |
-| Set your budget | "My budget is $200" |
-| Express preferences | "I love minimalist style" / "I prefer navy and black" |
-
-References like "it", "that", and "the jacket" are resolved from context — no need to repeat item names.
-
-### Live session monitor
-
-To watch Redis saves happen in real time, open a second terminal:
-
-```bash
-redis-cli monitor
-```
-
----
+<div align="center">
+<img src="images/mobile.png" alt="Mobile view" width="260">
+</div>
 
 ## Architecture
 
@@ -200,208 +164,126 @@ flowchart TD
     style N fill:#1e0a4a,stroke:#6d28d9,color:#c4b5fd
 ```
 
----
+**Request flow**
 
-## Running Tests
+1. The utterance goes to Tier 1 (regex). On a miss it goes to Tier 2 (embeddings). On a second miss it is `unclear`.
+2. Gender, budget and style/colour are extracted on every turn and written to memory.
+3. The reference resolver maps pronouns to an item (heuristic, or Ollama if enabled).
+4. The tool for the intent runs and updates the session.
+5. The reply is generated (LLM, or template fallback) and the session is saved to Redis.
 
-```bash
-uv run pytest -q          # 224 tests, all passing
+## Tech stack
+
+| Part | Choice |
+|---|---|
+| Language | Python 3.13, managed with uv |
+| Classification | Regex rules + `all-MiniLM-L6-v2` (sentence-transformers) |
+| LLM (optional) | Ollama, `llama3.2:3b` |
+| Session store | Redis 7+ |
+| Terminal UI | Plain REPL (`mrshop/conversation/repl.py`) |
+| Web demo | FastAPI + one HTML file |
+| Tests | pytest, pytest-asyncio, fakeredis |
+
+## Privacy
+
+- Everything runs on your machine. Redis keeps your session (wardrobe, budget, preferences, topic history) for 24 hours.
+- With Ollama enabled, text goes only to your own Ollama server.
+- No external API is called.
+
+## Project structure
+
+```
+.
+├── mrshop/
+│   ├── config.py             # Startup wiring: picks resolver + reply generator
+│   ├── classifier/           # tier1.py (regex), tier2.py (embeddings), resolver.py
+│   ├── generator/reply.py    # template_reply and streaming llm_reply
+│   ├── memory/session.py     # Session schema and typed helpers
+│   ├── storage/redis_store.py# Load / save session, TTL, multi-user
+│   ├── tools/                # registry.py, wardrobe, styling, purchase, booking
+│   ├── orchestrator/         # Routes each turn, side-channel extraction, trace
+│   └── conversation/repl.py  # Terminal REPL
+├── web/
+│   ├── server.py             # FastAPI wrapper around the orchestrator
+│   └── index.html            # Chat page
+├── tests/                    # pytest suites (Redis and Ollama are mocked)
+├── images/                   # Screenshots
+├── DESIGN.md                 # Example conversations and design decisions
+└── pyproject.toml
 ```
 
-Individual suites:
+## Run it yourself
+
+**Prerequisites:** Python 3.13, [uv](https://docs.astral.sh/uv/), Redis 7+ (`sudo apt install redis-server`). Ollama is optional (`ollama pull llama3.2:3b`).
+
+**1. Install**
 
 ```bash
-uv run pytest tests/test_memory.py        # session state schema + helpers
-uv run pytest tests/test_tools.py         # wardrobe/styling/purchase/booking tools
-uv run pytest tests/test_classifier.py    # Tier 1 + Tier 2 classification
-uv run pytest tests/test_orchestrator.py  # routing, topic switch, traces
-uv run pytest tests/test_e2e.py           # full pipeline conversations
-uv run pytest tests/test_tier3.py         # LLM resolver + reply generation + bootstrap
-uv run pytest tests/test_storage.py       # Redis load/save/TTL/multi-user (fakeredis)
+uv sync
 ```
 
-No real Redis or Ollama server needed for tests — both are mocked.
+**2. Terminal version**
 
----
+```bash
+uv run mrshop                        # auto: uses Ollama if reachable
+LLM_ENABLED=false uv run mrshop      # template mode, no Ollama needed
+MRSHOP_USER_ID=alice uv run mrshop   # separate session per user
+```
 
-## Environment Variables
+**3. Chat website**
+
+```bash
+uv pip install fastapi uvicorn
+uv run uvicorn server:app --app-dir web --port 8000
+```
+
+Then open `http://localhost:8000`.
+
+### What you can say
+
+| What you want | Example |
+|---|---|
+| Add an item | "I just got a navy blazer" |
+| See your wardrobe | "What do I have?" |
+| Styling advice | "What goes with dark jeans?" |
+| Buy something | "I want to buy that jacket" |
+| Book a stylist | "Book me a stylist call Friday" |
+| Set a budget | "My budget is $200" |
+| Preferences | "I love minimalist style" |
+
+### Environment variables
 
 | Variable | Default | Purpose |
-|----------|---------|---------|
-| `LLM_ENABLED` | `auto` | `true` / `false` / `auto` (pings Ollama at startup) |
-| `OLLAMA_HOST` | `http://localhost:11434` | Ollama server address |
-| `OLLAMA_MODEL` | `llama3.2:3b` | Model to use for responses |
-| `TIER2_THRESHOLD` | `0.33` | Embedding confidence cutoff (0–1) |
-| `REDIS_URL` | `redis://localhost:6379` | Redis connection string |
-| `REDIS_TTL` | `86400` | Session expiry in seconds (24 hours) |
-| `MRSHOP_USER_ID` | `local` | Per-user session key — change for multi-user setups |
+|---|---|---|
+| `LLM_ENABLED` | `auto` | `true`, `false` or `auto` (pings Ollama) |
+| `OLLAMA_HOST` | `http://localhost:11434` | Ollama address |
+| `OLLAMA_MODEL` | `llama3.2:3b` | Model for replies |
+| `TIER2_THRESHOLD` | `0.33` | Embedding confidence cutoff |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection |
+| `REDIS_TTL` | `86400` | Session expiry in seconds |
+| `MRSHOP_USER_ID` | `local` | Session key per user |
 
----
+### Tests
 
-## Project Scope
-
-### 1. Intent Classification
-
-A three-tier pipeline classifies every user utterance into one of five intents:
-
-| Intent | Example utterances |
-|--------|-------------------|
-| `wardrobe_upload` | "I just got a navy blazer", "I also have baggy jeans" |
-| `wardrobe_list` | "What's in my wardrobe?", "Show me all my clothes" |
-| `styling_advice` | "What goes with dark jeans?", "Style it for a date night" |
-| `purchase` | "I want to buy that jacket", "How much does it cost?" |
-| `booking` | "Book me a stylist call Friday", "Schedule a styling session" |
-
-**Tier 1 — keyword/regex** (`mrshop/classifier/tier1.py`): Instant, deterministic rules.
-Handles clear-cut phrases like "I just got", "book me a stylist", "I want to buy".
-Returns confidence 1.0 on a hit, passes to Tier 2 on a miss. Rules are read lazily
-from the tool registry — adding a new tool's patterns requires no changes here.
-
-**Tier 2 — embedding similarity** (`mrshop/classifier/tier2.py`): `all-MiniLM-L6-v2`
-encodes the utterance and compares it against a taxonomy of representative sentences
-per intent. Taxonomy sentences are also read from the tool registry at startup — no
-changes to the classifier when adding a new intent.
-
-**Fallback — LLM response layer**: Utterances that don't clear either tier's confidence
-threshold are treated as `unclear`. Rather than a canned error message, the LLM
-handles these naturally — greetings, off-topic messages, and vague requests all get
-a coherent conversational response.
-
----
-
-### 2. Context / Memory Layer (the Ambient Layer)
-
-Session state (`mrshop/memory/session.py`) persists across every topic switch and
-across sessions via Redis. The user never needs to repeat themselves.
-
-| Field | What it captures | How it's populated |
-|-------|-----------------|-------------------|
-| `wardrobe_items` | All clothing items the user owns — populated by wardrobe upload **and purchase** | `wardrobe_upload` + `purchase` tools |
-| `cart` | Transient purchase basket — cleared automatically after each fulfilled order | `purchase` tool |
-| `gender` | Self-identification — asked once at startup | startup prompt + regex side-channel |
-| `budget` | Stated budget ("$200", "budget of 150") | regex side-channel |
-| `preferences.style` | Style preference ("I love minimalist") | regex side-channel |
-| `preferences.colors` | Favourite colours — union across turns | regex side-channel |
-| `last_mentioned_item` | Most recently referenced item — fallback when no suggestion context exists | resolver + tools |
-| `last_suggested_items` | Items from the most recent styling suggestion — resolved first when user says "buy that" / "those items" | `styling_advice` tool |
-| `topic_history` | Ordered list of past intents | orchestrator |
-| `current_topic` | Active intent | orchestrator |
-
-**Side-channel extraction**: On every turn, three independent regex passes run
-against the raw utterance before any tool is called. Gender, budget, and
-style/colour preferences are extracted and written to session memory regardless
-of the classified intent — a user mentioning "I prefer earth tones" mid-purchase
-gets that preference stored and injected into every subsequent LLM reply.
-
-**Reference resolution** (`mrshop/classifier/resolver.py`): When a user says "style it",
-"buy that", or "purchase those items", the resolver maps the pronoun to the correct item:
-- `heuristic_resolve` — clothing-noun regex → pronoun check against `last_suggested_items` → `last_mentioned_item` fallback
-- `llm_resolve` — Ollama prompt (with wardrobe + `last_suggested_items` context) for specific item references; skips Ollama entirely for pronoun-only utterances ("buy that", "add it") where the heuristic context is more reliable than a small LLM
-
-Resolution is skipped entirely for `unclear` intent — there is no item to resolve,
-and running the resolver on greetings caused junk words to pollute `last_mentioned_item`.
-
----
-
-### 3. Topic-Switch Scenario (end-to-end)
-
-```
-You: I just got a navy blazer
-Mr.Shop: Great, I've added your navy blazer to your wardrobe!
-  trace → intent=wardrobe_upload (rule, 1.0) | topic=wardrobe_upload
-
-You: What goes with dark blue jeans?
-Mr.Shop: Your navy blazer pairs beautifully with dark blue jeans...
-  trace → intent=styling_advice (rule, 1.0) | topic_switch=True
-
-You: I want to buy that jacket
-Mr.Shop: Purchase started for 'navy blazer' at $189.99. Added to your wardrobe.
-  trace → intent=purchase (rule, 1.0) | topic_switch=True | resolver=llm
-                                        ↑ "that jacket" resolved to "navy blazer"
-                                          via LLM using last_mentioned_item context
-                                        ↑ cart cleared after fulfilment; item now in wardrobe
-
-You: Book me a stylist call Friday
-Mr.Shop: Booked! Stylist Alex will see you Friday at 2pm. Confirmation: MRSHOP-4821.
-  trace → intent=booking (rule, 1.0) | topic_switch=True
+```bash
+uv run pytest -q
 ```
 
-What the memory layer preserved across all four turns:
-- `wardrobe_items = ["navy blazer"]` — added at upload, confirmed again after purchase
-- `last_mentioned_item = "navy blazer"` — resolved "that jacket" correctly in turn 3
-- `cart = []` — cleared after the purchase was fulfilled
-- `topic_history = ["wardrobe_upload", "styling_advice", "purchase"]` — full audit trail
+Redis (fakeredis) and Ollama are mocked, so no services are needed.
 
----
+## Status
 
-### 4. Scaling to Additional Functionalities
+- Intent classification, memory, tools and Redis sessions: **done**
+- Terminal REPL with streaming and turn trace: **done**
+- Chat website demo: **done**
+- Screenshots in this README were taken with LLM off and Tier 2 off (Tier 1 rules + template replies)
 
-The architecture uses a plugin registry so that adding a new capability requires
-changes in exactly **one place** — no orchestrator rewrites, no classifier edits,
-no prompt engineering overhauls.
+## Ideas for later
 
-**Adding a new intent** — create one file and call `register()`:
+- Real product catalogue instead of fixed prices
+- Image upload for wardrobe items
+- Streaming replies in the web UI
 
-```python
-# mrshop/tools/size_check.py
-from mrshop.tools.registry import ToolDefinition, register
+## Author
 
-def size_check(item: str, state: dict) -> dict:
-    return {"item": item, "size": "M", "available": True}
-
-register(ToolDefinition(
-    intent="size_check",
-    tier1_priority=35,
-    tier1_patterns=[r"\bwhat size (is|should)\b", r"\bdo you have .{0,20} in\b"],
-    tier2_examples=["What size is this item?", "Do you have this in medium?"],
-    llm_instruction="Confirm the size and availability. 1–2 sentences.",
-    run=lambda utterance, resolved_item, state: size_check(resolved_item or utterance, state),
-))
-```
-
-Tier 1 rules, Tier 2 taxonomy, orchestrator dispatch, and LLM prompt instructions
-all update automatically — zero changes to any other file.
-
-**Swappable LLM provider**: Both the resolver and reply generator are `Callable` type
-aliases injected at startup via `config.bootstrap()`. Swapping from Ollama to OpenAI,
-Gemini, or a fine-tuned model means implementing one new async function — the
-orchestrator, tools, and memory layer are completely unaffected.
-
-**Scaling memory**: Adding a new session field means adding it to `new_session()` (the
-schema guard raises `KeyError` immediately on unknown keys), adding a typed helper, and
-including it in `_build_reply_prompt()`.
-
-**Multi-user / persistence**: Session state is persisted to Redis after every turn,
-namespaced by `MRSHOP_USER_ID`. The same Redis instance serves multiple users with no
-code changes. If Redis is unreachable the agent degrades gracefully to in-memory only.
-
----
-
-## Project Layout
-
-```
-mrshop/
-  config.py             # startup wiring — selects resolver + reply generator
-  classifier/
-    tier1.py            # keyword/regex rules (lazy-loaded from registry)
-    tier2.py            # embedding similarity + taxonomy (lazy-loaded from registry)
-    resolver.py         # ResolverFn interface, heuristic_resolve, llm_resolve
-  generator/
-    reply.py            # ReplyFn interface, template_reply, llm_reply (streaming)
-  memory/
-    session.py          # session_state schema + typed read/write helpers
-  storage/
-    redis_store.py      # get_client / load_session / save_session (TTL + multi-user)
-  tools/
-    registry.py         # ToolDefinition dataclass — the plugin registration point
-    wardrobe.py         # wardrobe_upload + wardrobe_list + registrations
-    styling.py          # styling_advice tool + registration
-    purchase.py         # purchase tool + registration
-    booking.py          # booking tool + registration
-  orchestrator/
-    orchestrator.py     # routes turns, side-channel extraction, owns turn_trace
-  conversation/
-    repl.py             # terminal REPL — streaming output, gender prompt, pure I/O
-tests/                  # 224 tests across 7 files (fakeredis — no real services needed)
-DESIGN.md               # example conversations + design decisions
-```
+Built by [Sarang](https://github.com/sarangKP).
